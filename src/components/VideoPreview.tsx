@@ -14,6 +14,7 @@ const SCENES = [
     description: "Четыре игрока в алмазной броне стоят у портала",
     overlay: null,
     lines: ["Том и Джерри переглядываются...", "Алекс и Марк готовятся к битве", "Портал мерцает фиолетовым", "Все прыгают — вспышка!"],
+    voiceover: "Четыре игрока в алмазной броне собираются у портала в Энд. Том и Джерри шепчутся — они уже всё придумали. Алекс и Марк ни о чём не подозревают.",
   },
   {
     id: 2,
@@ -28,6 +29,7 @@ const SCENES = [
     description: "Дракон кружит и атакует в Энде",
     overlay: null,
     lines: ["Дракон атакует!", "Все четверо стреляют из луков", "Slow-mo: последний удар Тома", "💥 ВЗРЫВ — дракон повержен!"],
+    voiceover: "Энд. Дракон кружит и атакует. Все четверо бьются плечом к плечу. Том наносит последний удар — и дракон взрывается!",
   },
   {
     id: 3,
@@ -42,6 +44,7 @@ const SCENES = [
     description: "Том и Джерри хватают яйцо и бегут",
     overlay: null,
     lines: ["Яйцо появляется на пьедестале", "Том хватает яйцо!", "Фиолетовые частицы — побег", "Алекс и Марк в шоке..."],
+    voiceover: "На пьедестале появляется яйцо дракона. И тут — предатели действуют! Том хватает яйцо, Джерри открывает портал. Они исчезают в фиолетовых частицах.",
   },
   {
     id: 4,
@@ -56,6 +59,7 @@ const SCENES = [
     description: "Алекс и Марк находят координаты",
     overlay: null,
     lines: ["Осмотр базы предателей", "Сундук с запиской найден!", "В чате: «Нас предали»", "Алекс берёт меч — вперёд!"],
+    voiceover: "Алекс и Марк возвращаются на базу. В сундуке — записка с координатами. Всё ясно. Нас предали. Алекс берёт меч.",
   },
   {
     id: 5,
@@ -70,6 +74,7 @@ const SCENES = [
     description: "Алекс и Марк мчатся по координатам",
     overlay: { text: "ПОГОНЯ!", color: "#60A5FA" },
     lines: ["Бег от первого лица!", "Лес... горы... пустошь...", "Бункер найден!", "Том и Джерри внутри..."],
+    voiceover: "Погоня! Алекс и Марк мчатся через леса и горы. Координаты ведут к краю карты. Бункер найден. Предатели внутри — и они думают, что в безопасности.",
   },
   {
     id: 6,
@@ -84,6 +89,7 @@ const SCENES = [
     description: "PvP: Джерри мёртв → Том мёртв → яйцо",
     overlay: { text: "ФИНАЛ", color: "#F87171" },
     lines: ["Они врываются на базу!", "Джерри повержен ✕", "Том повержен ✕", "🥚 Яйцо возвращено!"],
+    voiceover: "Финал! Алекс и Марк врываются. Начинается бой. Джерри падает первым. Том пытается сбежать — но поздно. Яйцо дракона снова у своих.",
   },
   {
     id: 7,
@@ -98,6 +104,7 @@ const SCENES = [
     description: "Алекс и Марк возвращаются домой с яйцом",
     overlay: null,
     lines: ["Герои стоят над поверженными", "Том пишет в чат угрозы...", "Яйцо в руках Алекса", "Закат. Домой."],
+    voiceover: "Алекс и Марк стоят над поверженными предателями. Справедливость восстановлена. Закат. Они возвращаются домой — с яйцом дракона.",
   },
   {
     id: 8,
@@ -112,6 +119,7 @@ const SCENES = [
     description: "Чёрный экран. Текст по центру.",
     overlay: null,
     lines: ["", "", "Снято игроком BlackYT", ""],
+    voiceover: "Снято игроком BlackYT.",
   },
 ];
 
@@ -330,6 +338,50 @@ function drawScene(
   }
 }
 
+function useVoiceover() {
+  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const lastSpokenSceneRef = useRef<number>(-1);
+
+  const init = useCallback(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      synthRef.current = window.speechSynthesis;
+    }
+  }, []);
+
+  const speakScene = useCallback((sceneId: number) => {
+    if (!synthRef.current) return;
+    if (lastSpokenSceneRef.current === sceneId) return;
+    lastSpokenSceneRef.current = sceneId;
+
+    const scene = SCENES.find((s) => s.id === sceneId);
+    if (!scene) return;
+
+    synthRef.current.cancel();
+
+    const utter = new SpeechSynthesisUtterance(scene.voiceover);
+    utter.lang = "ru-RU";
+    utter.rate = 0.92;
+    utter.pitch = 1.05;
+    utter.volume = 1;
+
+    // Prefer a Russian voice if available
+    const voices = synthRef.current.getVoices();
+    const ruVoice = voices.find(
+      (v) => v.lang.startsWith("ru") && !v.name.toLowerCase().includes("compact")
+    ) || voices.find((v) => v.lang.startsWith("ru"));
+    if (ruVoice) utter.voice = ruVoice;
+
+    synthRef.current.speak(utter);
+  }, []);
+
+  const stop = useCallback(() => {
+    synthRef.current?.cancel();
+    lastSpokenSceneRef.current = -1;
+  }, []);
+
+  return { init, speakScene, stopVoice: stop };
+}
+
 export default function VideoPreview() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
@@ -338,8 +390,10 @@ export default function VideoPreview() {
   const [isRecording, setIsRecording] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentSceneId, setCurrentSceneId] = useState(1);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const recordedChunksRef = useRef<Blob[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const { init: initVoice, speakScene, stopVoice } = useVoiceover();
 
   const getSceneAt = useCallback((elapsed: number) => {
     let acc = 0;
@@ -360,6 +414,7 @@ export default function VideoPreview() {
       setIsPlaying(false);
       setProgress(1);
       startTimeRef.current = null;
+      stopVoice();
       return;
     }
 
@@ -367,33 +422,39 @@ export default function VideoPreview() {
     const globalFrame = Math.floor(elapsed * FPS);
 
     setProgress(elapsed / TOTAL_DURATION);
-    setCurrentSceneId(scene.id);
+    setCurrentSceneId((prev) => {
+      if (prev !== scene.id && voiceEnabled) speakScene(scene.id);
+      return scene.id;
+    });
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (ctx) drawScene(ctx, scene, localT, globalFrame);
 
     rafRef.current = requestAnimationFrame(animate);
-  }, [getSceneAt]);
+  }, [getSceneAt, speakScene, stopVoice, voiceEnabled]);
 
   const play = useCallback(() => {
+    initVoice();
     startTimeRef.current = null;
     setIsPlaying(true);
     setProgress(0);
+    setCurrentSceneId(0);
+    if (voiceEnabled) speakScene(1);
     rafRef.current = requestAnimationFrame(animate);
-  }, [animate]);
+  }, [animate, initVoice, speakScene, voiceEnabled]);
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
+    stopVoice();
     setIsPlaying(false);
     startTimeRef.current = null;
     setProgress(0);
 
-    // Draw first frame
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (ctx) drawScene(ctx, SCENES[0], 0, 0);
-  }, []);
+  }, [stopVoice]);
 
   const downloadVideo = useCallback(() => {
     const canvas = canvasRef.current;
@@ -526,7 +587,7 @@ export default function VideoPreview() {
       </div>
 
       {/* Controls */}
-      <div className="flex gap-3 justify-center mt-4">
+      <div className="flex gap-3 justify-center mt-4 flex-wrap">
         {!isPlaying ? (
           <button
             onClick={play}
@@ -547,6 +608,23 @@ export default function VideoPreview() {
         )}
 
         <button
+          onClick={() => {
+            setVoiceEnabled((v) => {
+              if (v) stopVoice();
+              return !v;
+            });
+          }}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-full font-oswald font-bold text-sm tracking-widest border-2 transition-all hover:scale-105 active:scale-95"
+          style={{
+            borderColor: voiceEnabled ? currentScene.glow + "88" : "rgba(255,255,255,0.15)",
+            color: voiceEnabled ? currentScene.glow : "rgba(255,255,255,0.3)",
+            background: voiceEnabled ? currentScene.color + "22" : "transparent",
+          }}
+        >
+          {voiceEnabled ? "🔊" : "🔇"} ГОЛОС
+        </button>
+
+        <button
           onClick={downloadVideo}
           disabled={isRecording || isPlaying}
           className="flex items-center gap-2 px-5 py-2.5 rounded-full font-oswald font-bold text-sm tracking-widest border-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-40"
@@ -562,6 +640,12 @@ export default function VideoPreview() {
           )}
         </button>
       </div>
+
+      {voiceEnabled && !isPlaying && (
+        <p className="text-center font-rubik text-xs mt-2" style={{ color: currentScene.glow + "99" }}>
+          Озвучка включена — нажми ▶ для воспроизведения
+        </p>
+      )}
 
       {isRecording && (
         <p className="text-center font-rubik text-xs text-white/30 mt-2">
