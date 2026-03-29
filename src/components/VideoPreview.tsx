@@ -128,15 +128,25 @@ const FPS = 30;
 const W = 360;
 const H = 640;
 
-const SCREENSHOT_URL = "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/bucket/3b268a16-e8f5-43bb-b770-51876161027f.png";
+// Per-scene images (generated + real screenshot)
+const SCENE_IMAGES: Record<number, string> = {
+  1: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/86fdb2cc-5ee1-4eb9-8c1f-b91abb13aab2.jpg",
+  2: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/116394ce-4f1c-48f7-ac0c-9c2a34fe0da3.jpg",
+  3: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/41d4e0ce-d253-4eda-a12e-62f56794cbd5.jpg",
+  4: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/1b9f9d4f-b4f0-4f52-b354-5aa251aa2ff8.jpg",
+  5: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/32e47b98-c146-4d76-8699-e91d883e027d.jpg",
+  6: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/bucket/3b268a16-e8f5-43bb-b770-51876161027f.png",
+  7: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/f4b598af-9740-4d11-b7b3-3bbff3df460e.jpg",
+};
 
-// Scenes where the screenshot is shown as background
-const SCREENSHOT_SCENES = new Set([2, 3, 6, 7]);
-
-// Preload image
-const screenshotImg = new Image();
-screenshotImg.crossOrigin = "anonymous";
-screenshotImg.src = SCREENSHOT_URL;
+// Preload all images
+const sceneImgCache: Record<number, HTMLImageElement> = {};
+Object.entries(SCENE_IMAGES).forEach(([id, url]) => {
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.src = url;
+  sceneImgCache[Number(id)] = img;
+});
 
 function hexToRgb(hex: string) {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -165,38 +175,41 @@ function drawScene(
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  const hasScreenshot = SCREENSHOT_SCENES.has(scene.id) && screenshotImg.complete && screenshotImg.naturalWidth > 0;
+  const sceneImg = sceneImgCache[scene.id];
+  const hasImg = !!sceneImg && sceneImg.complete && sceneImg.naturalWidth > 0;
 
-  if (hasScreenshot) {
-    // Draw screenshot cropped to fill canvas (cover)
-    const iw = screenshotImg.naturalWidth;
-    const ih = screenshotImg.naturalHeight;
+  if (hasImg) {
+    const iw = sceneImg.naturalWidth;
+    const ih = sceneImg.naturalHeight;
     const scale = Math.max(w / iw, h / ih);
     const sw = iw * scale;
     const sh = ih * scale;
     const sx = (w - sw) / 2;
     const sy = (h - sh) / 2;
 
-    // Subtle zoom pulse for action scenes
-    const zoomPulse = scene.id === 6 ? 1 + Math.sin(globalFrame * 0.15) * 0.015 : 1;
+    // Subtle zoom/pan per scene for cinematic feel
+    const zoomPulse = (scene.id === 2 || scene.id === 6)
+      ? 1 + Math.sin(globalFrame * 0.12) * 0.02
+      : 1 + localT * 0.03;
+
     ctx.save();
     ctx.translate(w / 2, h / 2);
     ctx.scale(zoomPulse, zoomPulse);
     ctx.translate(-w / 2, -h / 2);
-    ctx.drawImage(screenshotImg, sx, sy, sw, sh);
+    ctx.drawImage(sceneImg, sx, sy, sw, sh);
     ctx.restore();
 
-    // Dark overlay so text is readable
-    const overlayAlpha = scene.id === 7 ? 0.45 : 0.62;
+    // Dark overlay — lighter for epilogue, heavier for action
+    const overlayAlpha = scene.id === 7 ? 0.38 : scene.id === 8 ? 0.85 : 0.55;
     ctx.fillStyle = `rgba(0,0,0,${overlayAlpha})`;
     ctx.fillRect(0, 0, w, h);
 
-    // Color tint matching scene
+    // Color tint
     const gc2 = hexToRgb(scene.color);
-    ctx.fillStyle = `rgba(${gc2.r},${gc2.g},${gc2.b},0.18)`;
+    ctx.fillStyle = `rgba(${gc2.r},${gc2.g},${gc2.b},0.15)`;
     ctx.fillRect(0, 0, w, h);
   } else {
-    // Grid pattern (non-screenshot scenes)
+    // Fallback gradient + grid
     ctx.strokeStyle = `${scene.color}18`;
     ctx.lineWidth = 1;
     for (let x = 0; x < w; x += 32) {
@@ -205,18 +218,16 @@ function drawScene(
     for (let y = 0; y < h; y += 32) {
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
     }
-
-    // Glow center
     const glowRad = ctx.createRadialGradient(w / 2, h * 0.45, 0, w / 2, h * 0.45, w * 0.7);
     const gc = hexToRgb(scene.color);
-    glowRad.addColorStop(0, `rgba(${gc.r},${gc.g},${gc.b},0.18)`);
+    glowRad.addColorStop(0, `rgba(${gc.r},${gc.g},${gc.b},0.22)`);
     glowRad.addColorStop(1, `rgba(${gc.r},${gc.g},${gc.b},0)`);
     ctx.fillStyle = glowRad;
     ctx.fillRect(0, 0, w, h);
   }
 
-  // Emoji big (only on non-screenshot scenes)
-  if (!hasScreenshot) {
+  // Emoji — small badge on image scenes, large centered otherwise
+  if (!hasImg) {
     const emojiScale = 1 + Math.sin(globalFrame * 0.08) * 0.04;
     ctx.save();
     ctx.translate(w / 2, h * 0.28);
@@ -227,12 +238,11 @@ function drawScene(
     ctx.fillText(scene.emoji, 0, 0);
     ctx.restore();
   } else {
-    // Small emoji badge on screenshot scenes
     ctx.save();
-    ctx.font = "32px serif";
+    ctx.font = "28px serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.fillText(scene.emoji, 16, 58);
+    ctx.fillText(scene.emoji, 14, 56);
     ctx.restore();
   }
 
@@ -250,7 +260,7 @@ function drawScene(
   ctx.restore();
 
   // Title — shift up on screenshot scenes so image is visible
-  const titleY = hasScreenshot ? h * 0.38 : h * 0.45;
+  const titleY = hasImg ? h * 0.38 : h * 0.45;
   const titleAlpha = Math.min(1, localT * 4);
   ctx.save();
   ctx.globalAlpha = titleAlpha;
@@ -259,7 +269,7 @@ function drawScene(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = scene.glow;
-  ctx.shadowBlur = hasScreenshot ? 24 : 18;
+  ctx.shadowBlur = hasImg ? 24 : 18;
   ctx.fillText(scene.title, w / 2, titleY);
   ctx.shadowBlur = 0;
   ctx.restore();
@@ -268,7 +278,7 @@ function drawScene(
   ctx.save();
   ctx.globalAlpha = Math.min(1, Math.max(0, localT * 3 - 0.3));
   ctx.font = "15px 'Rubik', sans-serif";
-  ctx.fillStyle = hasScreenshot ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.65)";
+  ctx.fillStyle = hasImg ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.65)";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -277,7 +287,7 @@ function drawScene(
   let line = "";
   const lineHeight = 22;
   const maxW = w - 48;
-  let lineY = hasScreenshot ? titleY + 36 : h * 0.53;
+  let lineY = hasImg ? titleY + 36 : h * 0.53;
   const linesArr: string[] = [];
   for (const word of words) {
     const test = line + (line ? " " : "") + word;
@@ -299,7 +309,7 @@ function drawScene(
   const lineCount = scene.lines.filter(Boolean).length;
   const lineStartT = 0.25;
   ctx.save();
-  let noteY = hasScreenshot ? h * 0.58 : h * 0.65;
+  let noteY = hasImg ? h * 0.58 : h * 0.65;
   for (let i = 0; i < scene.lines.length; i++) {
     if (!scene.lines[i]) continue;
     const threshold = lineStartT + i * (0.18 / lineCount);
@@ -316,27 +326,26 @@ function drawScene(
   }
   ctx.restore();
 
-  // Vignette on screenshot scenes
-  if (hasScreenshot) {
-    const vig = ctx.createRadialGradient(w / 2, h / 2, h * 0.25, w / 2, h / 2, h * 0.75);
+  // Vignette on all image scenes
+  if (hasImg) {
+    const vig = ctx.createRadialGradient(w / 2, h / 2, h * 0.2, w / 2, h / 2, h * 0.78);
     vig.addColorStop(0, "rgba(0,0,0,0)");
-    vig.addColorStop(1, "rgba(0,0,0,0.7)");
+    vig.addColorStop(1, "rgba(0,0,0,0.75)");
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, w, h);
 
-    // Player names from screenshot — shown in scene 2 & 6
-    if (scene.id === 2 || scene.id === 6) {
+    // Player names from real screenshot — shown in scene 6
+    if (scene.id === 6) {
       const nameAlpha = Math.min(1, localT * 5);
       ctx.save();
       ctx.globalAlpha = nameAlpha;
-      ctx.font = "bold 14px 'Minecraft', monospace";
-      // CuteCherryy label
+      ctx.font = "bold 13px monospace";
       ctx.fillStyle = "#ffffff";
       ctx.shadowColor = "#000";
-      ctx.shadowBlur = 6;
+      ctx.shadowBlur = 8;
       ctx.textAlign = "center";
-      ctx.fillText("CuteCherryy", w * 0.38, h * 0.22);
-      ctx.fillText("qqnoleq", w * 0.68, h * 0.22);
+      ctx.fillText("CuteCherryy", w * 0.37, h * 0.21);
+      ctx.fillText("qqnoleq", w * 0.67, h * 0.21);
       ctx.shadowBlur = 0;
       ctx.restore();
     }

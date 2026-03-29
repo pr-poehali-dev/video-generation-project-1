@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import VideoPreview from "@/components/VideoPreview";
 
+const SCENE_IMAGES: Record<number, string> = {
+  1: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/86fdb2cc-5ee1-4eb9-8c1f-b91abb13aab2.jpg",
+  2: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/116394ce-4f1c-48f7-ac0c-9c2a34fe0da3.jpg",
+  3: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/41d4e0ce-d253-4eda-a12e-62f56794cbd5.jpg",
+  4: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/1b9f9d4f-b4f0-4f52-b354-5aa251aa2ff8.jpg",
+  5: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/32e47b98-c146-4d76-8699-e91d883e027d.jpg",
+  6: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/bucket/3b268a16-e8f5-43bb-b770-51876161027f.png",
+  7: "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/files/f4b598af-9740-4d11-b7b3-3bbff3df460e.jpg",
+};
+
 const SCENES = [
   {
     id: 1,
@@ -242,41 +252,59 @@ function SceneCard({
         boxShadow: isActive ? `0 0 30px ${scene.glow}55` : undefined,
       }}
     >
-      <div className={`bg-gradient-to-br ${scene.bg} p-4 relative min-h-[110px]`}>
-        <div
-          className="absolute inset-0 opacity-5"
-          style={{
-            backgroundImage: `repeating-linear-gradient(0deg, ${scene.color} 0px, transparent 1px, transparent 20px)`,
-          }}
-        />
+      <div className={`bg-gradient-to-br ${scene.bg} relative min-h-[110px] flex`}>
+        {/* Scene image thumbnail */}
+        {SCENE_IMAGES[scene.id] && (
+          <div className="relative w-24 flex-shrink-0 overflow-hidden">
+            <img
+              src={SCENE_IMAGES[scene.id]}
+              alt={scene.title}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: isActive ? "brightness(1)" : "brightness(0.65) saturate(0.8)" }}
+            />
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(to right, transparent 60%, ${scene.bgFrom ?? "#000"})` }}
+            />
+          </div>
+        )}
 
-        {scene.overlay && <OverlayBadge overlay={scene.overlay} />}
+        <div className="flex-1 p-4 relative">
+          <div
+            className="absolute inset-0 opacity-5"
+            style={{
+              backgroundImage: `repeating-linear-gradient(0deg, ${scene.color} 0px, transparent 1px, transparent 20px)`,
+            }}
+          />
 
-        <div className="relative z-10">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">{scene.emoji}</span>
-              <span
-                className="font-oswald font-bold text-sm tracking-widest uppercase"
-                style={{ color: scene.glow }}
-              >
-                Сцена {scene.id}
+          {scene.overlay && <OverlayBadge overlay={scene.overlay} />}
+
+          <div className="relative z-10">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{scene.emoji}</span>
+                <span
+                  className="font-oswald font-bold text-sm tracking-widest uppercase"
+                  style={{ color: scene.glow }}
+                >
+                  Сцена {scene.id}
+                </span>
+              </div>
+              <span className="font-rubik text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-full">
+                {scene.time}
               </span>
             </div>
-            <span className="font-rubik text-xs text-white/40 bg-white/5 px-2 py-0.5 rounded-full">
-              {scene.time}
-            </span>
+
+            <h3 className="font-oswald font-black text-white text-xl tracking-wider mb-1">
+              {scene.title}
+            </h3>
+            <p className="font-rubik text-white/50 text-xs italic">{scene.vibe}</p>
           </div>
 
-          <h3 className="font-oswald font-black text-white text-xl tracking-wider mb-1">
-            {scene.title}
-          </h3>
-          <p className="font-rubik text-white/50 text-xs italic">{scene.vibe}</p>
+          {isActive && (
+            <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: scene.glow }} />
+          )}
         </div>
-
-        {isActive && (
-          <div className="absolute bottom-0 left-0 right-0 h-1" style={{ background: scene.glow }} />
-        )}
       </div>
     </div>
   );
@@ -304,9 +332,34 @@ function DetailPanel({ scene }: { scene: typeof SCENES[0] }) {
         className={`rounded-2xl overflow-hidden border-2 bg-gradient-to-br ${scene.bg}`}
         style={{ borderColor: `${scene.glow}66` }}
       >
+        {/* Scene image hero */}
+        {SCENE_IMAGES[scene.id] && (
+          <div className="relative h-40 overflow-hidden">
+            <img
+              src={SCENE_IMAGES[scene.id]}
+              alt={scene.title}
+              className="w-full h-full object-cover"
+              style={{ filter: "brightness(0.85) saturate(1.1)" }}
+            />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 40%, #000a)" }} />
+            <div
+              className="absolute bottom-3 left-4 font-oswald font-black text-white text-2xl tracking-wider"
+              style={{ textShadow: `0 0 16px ${scene.glow}` }}
+            >
+              {scene.emoji} {scene.title}
+            </div>
+            <div
+              className="absolute top-3 right-3 font-rubik text-xs px-2 py-0.5 rounded-full"
+              style={{ background: `${scene.color}cc`, color: "#fff" }}
+            >
+              {scene.time}
+            </div>
+          </div>
+        )}
+
         <div className="relative p-5" style={{ background: `${scene.color}15` }}>
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-4xl">{scene.emoji}</span>
+            <span className="text-4xl">{scene.id === 8 || !SCENE_IMAGES[scene.id] ? scene.emoji : ""}</span>
             <div>
               <div
                 className="font-oswald text-xs tracking-[0.3em] uppercase mb-0.5"
