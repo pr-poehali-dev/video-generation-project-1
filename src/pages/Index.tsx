@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import VideoPreview from "@/components/VideoPreview";
 
 const SCENES = [
   {
@@ -503,6 +504,8 @@ export default function Index() {
             </span>
           </div>
         </div>
+
+        <VideoPreview />
       </div>
     </div>
   );
