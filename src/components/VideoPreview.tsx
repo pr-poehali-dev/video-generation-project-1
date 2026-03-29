@@ -128,6 +128,16 @@ const FPS = 30;
 const W = 360;
 const H = 640;
 
+const SCREENSHOT_URL = "https://cdn.poehali.dev/projects/b49cde66-31cd-4267-b05f-21edc7374e14/bucket/3b268a16-e8f5-43bb-b770-51876161027f.png";
+
+// Scenes where the screenshot is shown as background
+const SCREENSHOT_SCENES = new Set([2, 3, 6, 7]);
+
+// Preload image
+const screenshotImg = new Image();
+screenshotImg.crossOrigin = "anonymous";
+screenshotImg.src = SCREENSHOT_URL;
+
 function hexToRgb(hex: string) {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -155,34 +165,76 @@ function drawScene(
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  // Grid pattern
-  ctx.strokeStyle = `${scene.color}18`;
-  ctx.lineWidth = 1;
-  for (let x = 0; x < w; x += 32) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-  }
-  for (let y = 0; y < h; y += 32) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  const hasScreenshot = SCREENSHOT_SCENES.has(scene.id) && screenshotImg.complete && screenshotImg.naturalWidth > 0;
+
+  if (hasScreenshot) {
+    // Draw screenshot cropped to fill canvas (cover)
+    const iw = screenshotImg.naturalWidth;
+    const ih = screenshotImg.naturalHeight;
+    const scale = Math.max(w / iw, h / ih);
+    const sw = iw * scale;
+    const sh = ih * scale;
+    const sx = (w - sw) / 2;
+    const sy = (h - sh) / 2;
+
+    // Subtle zoom pulse for action scenes
+    const zoomPulse = scene.id === 6 ? 1 + Math.sin(globalFrame * 0.15) * 0.015 : 1;
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.scale(zoomPulse, zoomPulse);
+    ctx.translate(-w / 2, -h / 2);
+    ctx.drawImage(screenshotImg, sx, sy, sw, sh);
+    ctx.restore();
+
+    // Dark overlay so text is readable
+    const overlayAlpha = scene.id === 7 ? 0.45 : 0.62;
+    ctx.fillStyle = `rgba(0,0,0,${overlayAlpha})`;
+    ctx.fillRect(0, 0, w, h);
+
+    // Color tint matching scene
+    const gc2 = hexToRgb(scene.color);
+    ctx.fillStyle = `rgba(${gc2.r},${gc2.g},${gc2.b},0.18)`;
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    // Grid pattern (non-screenshot scenes)
+    ctx.strokeStyle = `${scene.color}18`;
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 32) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = 0; y < h; y += 32) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Glow center
+    const glowRad = ctx.createRadialGradient(w / 2, h * 0.45, 0, w / 2, h * 0.45, w * 0.7);
+    const gc = hexToRgb(scene.color);
+    glowRad.addColorStop(0, `rgba(${gc.r},${gc.g},${gc.b},0.18)`);
+    glowRad.addColorStop(1, `rgba(${gc.r},${gc.g},${gc.b},0)`);
+    ctx.fillStyle = glowRad;
+    ctx.fillRect(0, 0, w, h);
   }
 
-  // Glow center
-  const glowRad = ctx.createRadialGradient(w / 2, h * 0.45, 0, w / 2, h * 0.45, w * 0.7);
-  const gc = hexToRgb(scene.color);
-  glowRad.addColorStop(0, `rgba(${gc.r},${gc.g},${gc.b},0.18)`);
-  glowRad.addColorStop(1, `rgba(${gc.r},${gc.g},${gc.b},0)`);
-  ctx.fillStyle = glowRad;
-  ctx.fillRect(0, 0, w, h);
-
-  // Emoji big
-  const emojiScale = 1 + Math.sin(globalFrame * 0.08) * 0.04;
-  ctx.save();
-  ctx.translate(w / 2, h * 0.28);
-  ctx.scale(emojiScale, emojiScale);
-  ctx.font = "88px serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(scene.emoji, 0, 0);
-  ctx.restore();
+  // Emoji big (only on non-screenshot scenes)
+  if (!hasScreenshot) {
+    const emojiScale = 1 + Math.sin(globalFrame * 0.08) * 0.04;
+    ctx.save();
+    ctx.translate(w / 2, h * 0.28);
+    ctx.scale(emojiScale, emojiScale);
+    ctx.font = "88px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(scene.emoji, 0, 0);
+    ctx.restore();
+  } else {
+    // Small emoji badge on screenshot scenes
+    ctx.save();
+    ctx.font = "32px serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    ctx.fillText(scene.emoji, 16, 58);
+    ctx.restore();
+  }
 
   // Scene number badge
   ctx.save();
@@ -197,7 +249,8 @@ function drawScene(
   ctx.fillText(`СЦЕНА ${scene.id}  ·  ${scene.time}`, w / 2, h * 0.13 + 13);
   ctx.restore();
 
-  // Title
+  // Title — shift up on screenshot scenes so image is visible
+  const titleY = hasScreenshot ? h * 0.38 : h * 0.45;
   const titleAlpha = Math.min(1, localT * 4);
   ctx.save();
   ctx.globalAlpha = titleAlpha;
@@ -206,8 +259,8 @@ function drawScene(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = scene.glow;
-  ctx.shadowBlur = 18;
-  ctx.fillText(scene.title, w / 2, h * 0.45);
+  ctx.shadowBlur = hasScreenshot ? 24 : 18;
+  ctx.fillText(scene.title, w / 2, titleY);
   ctx.shadowBlur = 0;
   ctx.restore();
 
@@ -215,7 +268,7 @@ function drawScene(
   ctx.save();
   ctx.globalAlpha = Math.min(1, Math.max(0, localT * 3 - 0.3));
   ctx.font = "15px 'Rubik', sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.fillStyle = hasScreenshot ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.65)";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -224,7 +277,7 @@ function drawScene(
   let line = "";
   const lineHeight = 22;
   const maxW = w - 48;
-  let lineY = h * 0.53;
+  let lineY = hasScreenshot ? titleY + 36 : h * 0.53;
   const linesArr: string[] = [];
   for (const word of words) {
     const test = line + (line ? " " : "") + word;
@@ -246,7 +299,7 @@ function drawScene(
   const lineCount = scene.lines.filter(Boolean).length;
   const lineStartT = 0.25;
   ctx.save();
-  let noteY = h * 0.65;
+  let noteY = hasScreenshot ? h * 0.58 : h * 0.65;
   for (let i = 0; i < scene.lines.length; i++) {
     if (!scene.lines[i]) continue;
     const threshold = lineStartT + i * (0.18 / lineCount);
@@ -262,6 +315,32 @@ function drawScene(
     noteY += 24;
   }
   ctx.restore();
+
+  // Vignette on screenshot scenes
+  if (hasScreenshot) {
+    const vig = ctx.createRadialGradient(w / 2, h / 2, h * 0.25, w / 2, h / 2, h * 0.75);
+    vig.addColorStop(0, "rgba(0,0,0,0)");
+    vig.addColorStop(1, "rgba(0,0,0,0.7)");
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, w, h);
+
+    // Player names from screenshot — shown in scene 2 & 6
+    if (scene.id === 2 || scene.id === 6) {
+      const nameAlpha = Math.min(1, localT * 5);
+      ctx.save();
+      ctx.globalAlpha = nameAlpha;
+      ctx.font = "bold 14px 'Minecraft', monospace";
+      // CuteCherryy label
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#000";
+      ctx.shadowBlur = 6;
+      ctx.textAlign = "center";
+      ctx.fillText("CuteCherryy", w * 0.38, h * 0.22);
+      ctx.fillText("qqnoleq", w * 0.68, h * 0.22);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    }
+  }
 
   // Overlay — ПОГОНЯ! / ФИНАЛ
   if (scene.overlay) {
