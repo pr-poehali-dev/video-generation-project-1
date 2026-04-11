@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import VideoPreview from "@/components/VideoPreview";
 
 const SCENE_IMAGES: Record<number, string> = {
@@ -496,6 +497,7 @@ function Timeline({ activeId, onSelect }: { activeId: number; onSelect: (id: num
 
 export default function Index() {
   const [activeId, setActiveId] = useState(1);
+  const navigate = useNavigate();
   const activeScene = SCENES.find((s) => s.id === activeId)!;
 
   return (
@@ -559,6 +561,21 @@ export default function Index() {
         </div>
 
         <VideoPreview />
+
+        {/* From Katya button */}
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={() => navigate("/katya")}
+            className="group relative flex items-center gap-3 px-6 py-3.5 rounded-2xl border border-pink-500/30 bg-pink-500/10 hover:bg-pink-500/20 transition-all duration-300 hover:scale-105 active:scale-95"
+            style={{ boxShadow: "0 0 24px #ec489922" }}
+          >
+            <span className="text-2xl group-hover:scale-110 transition-transform duration-200">❤️</span>
+            <div className="text-left">
+              <div className="font-oswald font-bold text-pink-300 text-sm tracking-wider">От Кати</div>
+              <div className="font-rubik text-white/40 text-xs">Тебе понравилось?</div>
+            </div>
+          </button>
+        </div>
       </div>
     </div>
   );
